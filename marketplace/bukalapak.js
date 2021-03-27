@@ -1,5 +1,8 @@
-const puppeteer = require('puppeteer')
 const config = require('../config')
+const puppeteer = require('puppeteer-extra')
+const StealthPlugin = require('puppeteer-extra-plugin-stealth')
+
+puppeteer.use(StealthPlugin())
 
 module.exports = {
     getUserDetail: function(username){
@@ -27,10 +30,6 @@ module.exports = {
                 await page.goto("https://www.bukalapak.com/u/" + username, {
                     waitUntil: ['load', 'networkidle0', 'domcontentloaded']
                 })
-
-                // let captcha = await page.$eval('iframe', el => {
-                //     return el
-                // })
 
                 await page.$eval('body', el => {
                     console.log(el)

@@ -1,6 +1,6 @@
 {
     "browser": {
-        "headless": false,
+        "headless": true,
         "args": [
             "--no-sandbox"
         ]

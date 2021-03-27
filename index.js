@@ -16,5 +16,10 @@ app.get('/bukalapak/user/:username', async (req, res) => {
     res.header("Content-Type", 'application/json')
        .send(JSON.stringify(data, null, 4));
 })
+app.get('/test', async (req, res) => {
+    
+    
 
+    // res.send(JSON.stringify(data, null, 4));
+})
 app.listen(port, () => console.log(`App listening on http://localhost:${port} !`))
