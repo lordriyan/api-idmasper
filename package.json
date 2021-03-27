@@ -1,0 +1,16 @@
+{
+  "name": "api-idmasper",
+  "version": "1.0.0",
+  "description": "API Indonesia Marketplace Scraper",
+  "main": "index.js",
+  "author": "Riyan Saputra <alamat.emailnya.riyan@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.17.1",
+    "nodemon": "^2.0.7",
+    "puppeteer": "^8.0.0"
+  },
+  "scripts": {
+    "start": "nodemon index.js"
+  }
+}
