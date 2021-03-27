@@ -53,7 +53,6 @@ puppeteer.use(StealthPlugin())
  */
 
     app.get('/debug', async (req, res) => {
-        
         let data = req.headers
 
         res.send(JSON.stringify(data, null, 4));
