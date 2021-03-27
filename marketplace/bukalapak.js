@@ -2,9 +2,14 @@ const config = require('../config')
 const puppeteer = require('puppeteer-extra')
 const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 
-puppeteer.use(StealthPlugin())
+puppeteer.use(StealthPlugin()) // To bypass captcha
 
 module.exports = {
+    /**
+     * Get user information by username
+     * @param {String} username You can get username a user by look at they profile url
+     * @returns Detail from a user
+     */
     getUserDetail: function(username){
         return new Promise((resolve, reject) => {
             (async () => {
@@ -18,12 +23,8 @@ module.exports = {
                 await page.setRequestInterception(true);
 
                 page.on('request', (req) => {
-                    if (req.resourceType() === 'document') {
-                        req.continue();
-                    }
-                    else {
-                        req.abort();
-                    }
+                    if (req.resourceType() === 'document') req.continue()
+                    else req.abort()
                 });
 
                 // Go to user page
@@ -120,14 +121,16 @@ module.exports = {
             })()
         });
     },
-    getProductsByUser: function(user){
+    /**
+     * Get list of all product sell by a user
+     * @param {Integer} userid Get this userid by do getUserDetail first
+     * @returns List of product that sell by the user
+     */
+    getProductsByUser: function(userid){
         return new Promise((resolve, reject) => {
             (async () => {
                 // Initializing browser
-                const browser = await puppeteer.launch({
-                    headless: false,    // true: Browser will run in background
-                    args: ['--no-sandbox']  // Browser arguments
-                })
+                const browser = await puppeteer.launch(config.browser)
 
                 // Create new browser tab
                 const page = await browser.newPage()
@@ -136,51 +139,27 @@ module.exports = {
                 await page.setRequestInterception(true);
 
                 page.on('request', (req) => {
-                    if (req.resourceType() === 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image') {
-                        req.abort();
-                    }
-                    else {
-                        req.continue();
-                    }
+                    if (req.resourceType() === 'document') req.continue()
+                    else req.abort()
                 });
+                
+                // Get access_token
+                let pref_start = '>'
+                let pref_end = '</pre>'
 
-                // Go to 
-                await page.goto("https://www.bukalapak.com/u/"+user, {
+                let access_token = await getToken()
+                    access_token = access_token.substring(access_token.indexOf(pref_start) + pref_start.length, access_token.indexOf(pref_end))
+                    access_token = JSON.parse(access_token).access_token
+
+                // Go to user page
+                await page.goto("https://api.bukalapak.com/stores/"+userid+"/products?offset=0&limit=0&sort=bestselling&access_token="+access_token, {
                     waitUntil: ['load', 'networkidle0', 'domcontentloaded']
                 })
 
-                let link_products = []
-                let first_mark = ""
-
-                while (true) {
-                    // Select all products
-                    let el_products = await page.$$('.item-product .c-product-card-description a.js-tracker-product-link');
-
-                    let link = await Promise.all(el_products.map(handle => handle.getProperty("href")));
-                        link = await Promise.all(link.map(handle => handle.jsonValue()));
-
-                    for (let i = 0; i < link.length; i++) {
-                        const e = link[i].substring(0, link[0].indexOf("?"));
-                        if (first_mark == e) {
-                            continue;
-                        }
-                        if (i == 0) {
-                            first_mark = e
-                        }
-                        link_products.push(e);
-                        console.log(e)
-                    }
-                    
-                    let button_next = await page.$('.c-pagination__item:nth-last-child(2) .c-pagination__btn:not([disabled])');
-                    
-                    if (button_next !== null) {
-                        // Go to next page
-                        await button_next.click();
-                        await delay(1000)
-                    } else {
-                        break;
-                    }
-                }
+                let bodyHTML = await page.evaluate(() => document.body.innerHTML);
+                    bodyHTML = bodyHTML.substring(bodyHTML.indexOf(pref_start) + pref_start.length, bodyHTML.indexOf(pref_end))
+                    bodyHTML = JSON.parse(bodyHTML)
+                let data = bodyHTML
 
                 let pages = await browser.pages()
                 await Promise.all(pages.map(page => page.close()))
@@ -189,18 +168,50 @@ module.exports = {
                 await browser.close()
 
                 // Return the products list
-                resolve({ status: link_products, length: link_products.length})
+                resolve(data)
             })()
         });
     },
+
     getProductByLink: function(url){
 
     },
 
 }
 
-function delay(time) {
+/**
+ * Post to a url by puppeteer
+ * @param {*} page Puppeteer page / tab
+ * @param {String} url An url to post
+ * @param {Object} formData A json data to post
+ */
+const post = async (page, url, formData) => {
+    let formHtml = '';
+    Object.keys(formData).forEach(function (name) {
+        value = formData[name]
+        formHtml += `<input type='hidden' name='${name}' value='${value}' />`;
+    });
+    formHtml = `<form action='${url}' method='post'>${formHtml}<input type='submit'/></form>`;
+    await page.setContent(formHtml);
+    const inputElement = await page.$('input[type=submit]');
+    await inputElement.click();
+};
+
+/**
+ * Get a token to access Bukalapak API
+ * @returns A token to access Bukalapak API
+ */
+function getToken() {
     return new Promise(function (resolve) {
-        setTimeout(resolve, time)
+    (async () => {
+        formData = {'dummy': 0}
+        const browser = await puppeteer.launch(config.browser);
+        const page = await browser.newPage();
+        await post(page, 'https://www.bukalapak.com/westeros_auth_proxies', formData);
+        await page.waitForNavigation()
+        let bodyHTML = await page.evaluate(() => document.body.innerHTML);
+        browser.close();
+        resolve(bodyHTML);
+    })();
     });
 }
